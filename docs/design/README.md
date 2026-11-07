@@ -1,4 +1,3 @@
-
 # **Design Docs**
 
 This directory holds the **design docs for Project Pulse** — how the code realizes the spec. Where `requirements/` says *what* the system does, design says *how*; design sits **below the SRS** in the spec→design→trace chain.
@@ -8,7 +7,7 @@ Design comes in **two levels**, and a coding agent reads them top-down:
 1. **Architectural design** — [`architectural-design.md`](architectural-design.md). The product's architecture-of-record (arc42 + C4): the platform context/container views and the binding conventions, the shared-foundation and performance-tracking component views, plus the RAM module's component view and cross-cutting subsystems. **One doc.** Read it *first*, to orient before touching code.
 2. **Detailed design** — one doc per use-case (UC) area (`doc.md`, `art.md`, …). How one area's code realizes its use cases: component/class design, sequence diagrams, the API contract, the data-model delta, the key decisions with the alternatives they rejected, and the tests that will prove each flow. Read the relevant area doc *before extending that area*.
 
-```text
+```
 requirements/use-cases.md  +  software-requirements-specification.md   (what — the contract)
         │  realized by
         ▼
@@ -49,7 +48,6 @@ Each Level-2 doc covers exactly one UC area and is named after that area's lower
 
 | File | Area | Scope |
 |------|------|-------|
-| `stu.md` | STU | student deactivation; preserve team membership and historical work; revoke account access |
 | `not.md` | NOT | who still owes a weekly activity report or peer evaluation; scheduled and on-demand reminders |
 | `tpl.md` | TPL | templates / team-document provisioning |
 | `glo.md` | GLO | glossary |
@@ -141,7 +139,7 @@ No code. /implement writes these tests; the reviewer checks the list is complete
 
 Good design before implementation is the point of these docs — pick the UML view that fits the concern, and use more than one when the area warrants it. All diagrams are Mermaid (see Conventions).
 
-- **Sequence** — request/response flows: SPA → controller → service → repository, plus any LLM-service round-trip. One for the main success scenario; add one for each non-trivial extension/error flow. Tie every interaction to the UC step each interaction implements.
+- **Sequence** — request/response flows: SPA → controller → service → repository, plus any LLM-service round-trip. One for the main success scenario; add one for each non-trivial extension/error flow. Tie every interaction to the UC step it implements.
 - **Class** — component/structure design: backend controllers/services/repositories/entities and frontend views/stores/api clients, and their relationships. Mark what is reused vs. new.
 - **ER** — DB schema: tables, key fields, relationships, migrations. Tie back to the SRS's Business Domain Model.
 - **State** — lifecycle-heavy areas, where the subtle behavior (and the bugs) live: document-section **lock** states (DOC), **review & submission** states (REV), AI candidate accept/reject (AI). If an area has a state machine, diagram it.
