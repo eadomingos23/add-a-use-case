@@ -1,5 +1,13 @@
 package team.projectpulse.security;
 
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtValidators;
+import team.projectpulse.user.PeerEvaluationUser;
+import team.projectpulse.user.UserRepository;
 import com.nimbusds.jose.jwk.JWK;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
@@ -135,8 +143,8 @@ public class SecurityConfiguration {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        return http
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, StudentDeactivationAuthorizationManager studentDeactivationAuthorizationManager) throws Exception {
+    return http
                 .authorizeHttpRequests(authorizeHttpRequests -> authorizeHttpRequests
                         // Security rules for the /courses/** endpoint.
                         .requestMatchers(HttpMethod.POST, this.baseUrl + "/courses/search").hasAuthority("ROLE_instructor")
@@ -201,6 +209,7 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.PUT, this.baseUrl + "/instructors/courses/{courseId}/default").access(this.courseMembershipAuthorizationManager)
 
                         // Security rules for the /students/** endpoint.
+                        .requestMatchers(HttpMethod.PATCH, this.baseUrl + "/students/{studentId}/deactivate").access(studentDeactivationAuthorizationManager)
                         .requestMatchers(HttpMethod.POST, this.baseUrl + "/students/search").hasAuthority("ROLE_instructor")
                         .requestMatchers(HttpMethod.POST, this.baseUrl + "/students").permitAll()
                         .requestMatchers(HttpMethod.GET, this.baseUrl + "/students/{studentId}").access(this.userOwnershipAuthorizationManager)
@@ -342,8 +351,40 @@ public class SecurityConfiguration {
     }
 
     @Bean
-    public JwtDecoder jwtDecoder() {
-        return NimbusJwtDecoder.withPublicKey(this.publicKey).build();
+    public JwtDecoder jwtDecoder(UserRepository userRepository) {
+        NimbusJwtDecoder decoder =
+                NimbusJwtDecoder.withPublicKey(this.publicKey).build();
+
+        OAuth2TokenValidator<Jwt> accountEnabledValidator = jwt -> {
+            Object userIdClaim = jwt.getClaims().get("userId");
+
+            if (!(userIdClaim instanceof Number userId)) {
+                return OAuth2TokenValidatorResult.failure(
+                        new OAuth2Error("invalid_token")
+                );
+            }
+
+            boolean accountEnabled = userRepository.findById(userId.intValue())
+                    .map(PeerEvaluationUser::isEnabled)
+                    .orElse(false);
+
+            if (!accountEnabled) {
+                return OAuth2TokenValidatorResult.failure(
+                        new OAuth2Error("invalid_token")
+                );
+            }
+
+            return OAuth2TokenValidatorResult.success();
+        };
+
+        decoder.setJwtValidator(
+                new DelegatingOAuth2TokenValidator<>(
+                        JwtValidators.createDefault(),
+                        accountEnabledValidator
+                )
+        );
+
+        return decoder;
     }
 
     @Bean

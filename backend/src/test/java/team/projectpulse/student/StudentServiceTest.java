@@ -1,3 +1,4 @@
+
 package team.projectpulse.student;
 
 import org.junit.jupiter.api.AfterEach;
@@ -5,6 +6,7 @@ import team.projectpulse.instructor.Instructor;
 import team.projectpulse.section.Section;
 import team.projectpulse.section.SectionRepository;
 import team.projectpulse.system.UserUtils;
+import team.projectpulse.system.exception.ObjectNotFoundException;
 import team.projectpulse.user.MyUserPrincipal;
 import team.projectpulse.user.userinvitation.UserInvitationService;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,6 +30,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
@@ -37,12 +40,16 @@ class StudentServiceTest {
 
     @Mock
     StudentRepository studentRepository;
+
     @Mock
     SectionRepository sectionRepository;
+
     @Mock
     UserInvitationService userInvitationService;
+
     @Mock
     PasswordEncoder passwordEncoder;
+
     @Mock
     UserUtils userUtils;
 
@@ -70,7 +77,7 @@ class StudentServiceTest {
 
     @AfterEach
     void tearDown() {
-        SecurityContextHolder.clearContext(); // Clear the security context after each test to avoid interference between tests
+        SecurityContextHolder.clearContext();
     }
 
     @Test
@@ -81,6 +88,7 @@ class StudentServiceTest {
 
         given(this.userUtils.getUserSectionId()).willReturn(2);
         given(this.studentRepository.findAll(any(Specification.class), any(Pageable.class))).willReturn(expectedPage);
+
         // When
         Page<Student> result = this.studentService.findByCriteria(searchCriteria, PageRequest.of(0, 20));
 
@@ -106,7 +114,9 @@ class StudentServiceTest {
     void testSaveStudent() {
         // Given
         Student jan = new Student("jan", "Jan", "Mckinney", "j.mckinney@abc.edu", "Abc123456", true, "student");
+
         doNothing().when(this.userInvitationService).validateUserInvitation(anyString(), anyString(), anyInt(), anyInt(), anyString());
+
         given(this.sectionRepository.findById(1)).willReturn(Optional.of(new Section()));
         given(this.passwordEncoder.encode(anyString())).willReturn("Encoded Password");
         given(this.studentRepository.save(jan)).willReturn(jan);
@@ -127,6 +137,7 @@ class StudentServiceTest {
     void testStudentUpdateOwnInfo() {
         // Given
         Student update = new Student("john", "John (updated)", "Smith (updated)", "j.smith@abc.edu (updated)", "", false, "admin student");
+
         given(this.studentRepository.findById(1)).willReturn(Optional.of(this.students.get(0)));
         given(this.studentRepository.save(any(Student.class))).willReturn(this.students.get(0));
 
@@ -154,6 +165,7 @@ class StudentServiceTest {
     void testInstructorUpdatesStudent() {
         // Given
         Student update = new Student("john", "John (updated)", "Smith (updated)", "j.smith@abc.edu (updated)", "", false, "admin student");
+
         given(this.studentRepository.findById(1)).willReturn(Optional.of(this.students.get(0)));
         given(this.studentRepository.save(any(Student.class))).willReturn(this.students.get(0));
 
@@ -173,8 +185,53 @@ class StudentServiceTest {
         assertThat(result.getFirstName()).isEqualTo(update.getFirstName());
         assertThat(result.getLastName()).isEqualTo(update.getLastName());
         assertThat(result.getEmail()).isEqualTo(update.getEmail());
-//        assertThat(result.getRoles()).isEqualTo(update.getRoles());
+        // assertThat(result.getRoles()).isEqualTo(update.getRoles());
         assertThat(result.isEnabled()).isEqualTo(update.isEnabled());
+    }
+
+    @Test
+    void testDeactivateStudent() {
+        // Given
+        Student john = this.students.get(0);
+
+        given(this.studentRepository.findById(1)).willReturn(Optional.of(john));
+        given(this.studentRepository.save(john)).willReturn(john);
+
+        // When
+        Student result = this.studentService.deactivateStudent(1);
+
+        // Then
+        assertThat(result.isEnabled()).isFalse();
+        verify(this.studentRepository, times(1)).save(john);
+        verify(this.studentRepository, never()).deleteById(anyInt());
+    }
+
+    @Test
+    void testDeactivateAlreadyInactiveStudent() {
+        // Given
+        Student john = this.students.get(0);
+        john.setEnabled(false);
+
+        given(this.studentRepository.findById(1)).willReturn(Optional.of(john));
+
+        // When & Then
+        assertThatThrownBy(() -> this.studentService.deactivateStudent(1))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Student is already inactive.");
+
+        verify(this.studentRepository, never()).save(any(Student.class));
+    }
+
+    @Test
+    void testDeactivateNonExistingStudent() {
+        // Given
+        given(this.studentRepository.findById(999)).willReturn(Optional.empty());
+
+        // When & Then
+        assertThatThrownBy(() -> this.studentService.deactivateStudent(999))
+                .isInstanceOf(ObjectNotFoundException.class);
+
+        verify(this.studentRepository, never()).save(any(Student.class));
     }
 
     @Test
@@ -189,5 +246,4 @@ class StudentServiceTest {
         // Then
         verify(this.studentRepository, times(1)).deleteById(1);
     }
-
 }
