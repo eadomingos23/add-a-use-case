@@ -1462,7 +1462,9 @@ Details:
 
 **Postconditions:**
 - POST-1. The student's account is deactivated.
-
+- POST-2. The student's existing team assignment and previously submitted work, including weekly activity reports and peer evaluations, remain preserved.
+- POST-3. The student can no longer access protected system functions, including through a session established before deactivation.
+- POST-4. The deactivated student cannot submit or edit future weekly activity reports or peer evaluations; existing historical records remain available to authorized users under the applicable visibility rules.
 **Main Success Scenario:**
 1. The course admin or instructor indicates to deactivate a student.
 2. The course admin or instructor views the details of this student through UC-STU-view-student: View a student.
