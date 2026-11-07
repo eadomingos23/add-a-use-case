@@ -1,3 +1,4 @@
+
 package team.projectpulse.student;
 
 import team.projectpulse.student.converter.StudentDtoToStudentConverter;
@@ -25,8 +26,10 @@ public class StudentController {
     private final StudentToStudentDtoConverter studentToStudentDtoConverter;
     private final StudentDtoToStudentConverter studentDtoToStudentConverter;
 
-
-    public StudentController(StudentService studentService, StudentRegistrationToStudentConverter studentRegistrationToStudentConverter, StudentToStudentDtoConverter studentToStudentDtoConverter, StudentDtoToStudentConverter studentDtoToStudentConverter) {
+    public StudentController(StudentService studentService,
+                             StudentRegistrationToStudentConverter studentRegistrationToStudentConverter,
+                             StudentToStudentDtoConverter studentToStudentDtoConverter,
+                             StudentDtoToStudentConverter studentDtoToStudentConverter) {
         this.studentService = studentService;
         this.studentRegistrationToStudentConverter = studentRegistrationToStudentConverter;
         this.studentToStudentDtoConverter = studentToStudentDtoConverter;
@@ -34,7 +37,8 @@ public class StudentController {
     }
 
     @PostMapping("/search")
-    public Result findStudentsByCriteria(@RequestBody Map<String, String> searchCriteria, Pageable pageable) {
+    public Result findStudentsByCriteria(@RequestBody Map<String, String> searchCriteria,
+                                         Pageable pageable) {
         Page<Student> studentPage = this.studentService.findByCriteria(searchCriteria, pageable);
         Page<StudentDto> studentDtoPage = studentPage.map(this.studentToStudentDtoConverter::convert);
         return new Result(true, StatusCode.SUCCESS, "Find students successfully", studentDtoPage);
@@ -50,24 +54,47 @@ public class StudentController {
     @GetMapping("/teams/{teamId}")
     public Result findStudentsByTeamId(@PathVariable Integer teamId) {
         List<Student> students = this.studentService.findStudentsByTeamId(teamId);
-        List<StudentDto> studentDtos = students.stream().map(this.studentToStudentDtoConverter::convert).collect(Collectors.toList());
-        return new Result(true, StatusCode.SUCCESS, "Find students by team id successfully", studentDtos);
+        List<StudentDto> studentDtos = students.stream()
+                .map(this.studentToStudentDtoConverter::convert)
+                .collect(Collectors.toList());
+        return new Result(true, StatusCode.SUCCESS,
+                "Find students by team id successfully", studentDtos);
     }
-    
+
     @PostMapping
-    public Result addStudent(@RequestParam Integer courseId, @RequestParam Integer sectionId, @RequestParam String registrationToken, @RequestParam String role, @Valid @RequestBody StudentRegistrationRequest registrationRequest) {
+    public Result addStudent(@RequestParam Integer courseId,
+                             @RequestParam Integer sectionId,
+                             @RequestParam String registrationToken,
+                             @RequestParam String role,
+                             @Valid @RequestBody StudentRegistrationRequest registrationRequest) {
         Student newStudent = this.studentRegistrationToStudentConverter.convert(registrationRequest);
-        Student savedStudent = this.studentService.saveStudent(newStudent, courseId, sectionId, registrationToken, role);
+        Student savedStudent = this.studentService.saveStudent(
+                newStudent, courseId, sectionId, registrationToken, role);
         StudentDto savedStudentDto = this.studentToStudentDtoConverter.convert(savedStudent);
         return new Result(true, StatusCode.SUCCESS, "Add student successfully", savedStudentDto);
     }
 
     @PutMapping("/{studentId}")
-    public Result updateStudent(@PathVariable Integer studentId, @Valid @RequestBody StudentDto studentDto) {
+    public Result updateStudent(@PathVariable Integer studentId,
+                                @Valid @RequestBody StudentDto studentDto) {
         Student update = this.studentDtoToStudentConverter.convert(studentDto);
         Student updatedStudent = this.studentService.updateStudent(studentId, update);
         StudentDto updatedStudentDto = this.studentToStudentDtoConverter.convert(updatedStudent);
-        return new Result(true, StatusCode.SUCCESS, "Update student successfully", updatedStudentDto);
+        return new Result(true, StatusCode.SUCCESS,
+                "Update student successfully", updatedStudentDto);
+    }
+
+    /**
+     * Deactivate a student without deleting their account,
+     * team assignment, or historical records.
+     */
+    @PatchMapping("/{studentId}/deactivate")
+    public Result deactivateStudent(@PathVariable Integer studentId) {
+        Student deactivatedStudent = this.studentService.deactivateStudent(studentId);
+        StudentDto studentDto = this.studentToStudentDtoConverter.convert(deactivatedStudent);
+
+        return new Result(true, StatusCode.SUCCESS,
+                "Deactivate student successfully", studentDto);
     }
 
     @DeleteMapping("/{studentId}")
@@ -75,5 +102,4 @@ public class StudentController {
         this.studentService.deleteStudent(studentId);
         return new Result(true, StatusCode.SUCCESS, "Delete student successfully", null);
     }
-
 }

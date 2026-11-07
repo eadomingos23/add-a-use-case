@@ -1,3 +1,4 @@
+
 package team.projectpulse.student;
 
 import team.projectpulse.section.Section;
@@ -28,8 +29,11 @@ public class StudentService {
     private final PasswordEncoder passwordEncoder;
     private final UserUtils userUtils;
 
-
-    public StudentService(StudentRepository studentRepository, SectionRepository sectionRepository, UserInvitationService userInvitationService, PasswordEncoder passwordEncoder, UserUtils userUtils) {
+    public StudentService(StudentRepository studentRepository,
+                          SectionRepository sectionRepository,
+                          UserInvitationService userInvitationService,
+                          PasswordEncoder passwordEncoder,
+                          UserUtils userUtils) {
         this.studentRepository = studentRepository;
         this.sectionRepository = sectionRepository;
         this.userInvitationService = userInvitationService;
@@ -40,7 +44,7 @@ public class StudentService {
     public Page<Student> findByCriteria(Map<String, String> searchCriteria, Pageable pageable) {
         Integer sectionId = this.userUtils.getUserSectionId();
 
-        Specification<Student> spec = Specification.unrestricted(); // Start with an unrestricted specification, matching all objects.
+        Specification<Student> spec = Specification.unrestricted();
 
         if (StringUtils.hasLength(searchCriteria.get("firstName"))) {
             spec = spec.and(StudentSpecs.containsFirstName(searchCriteria.get("firstName")));
@@ -66,7 +70,7 @@ public class StudentService {
             spec = spec.and(StudentSpecs.hasSectionName(searchCriteria.get("sectionName")));
         }
 
-        spec = spec.and(StudentSpecs.belongsToSection(sectionId)); // Only show students that belong to the default section of the instructor
+        spec = spec.and(StudentSpecs.belongsToSection(sectionId));
 
         return this.studentRepository.findAll(spec, pageable);
     }
@@ -80,18 +84,31 @@ public class StudentService {
         return this.studentRepository.findByTeamTeamId(teamId);
     }
 
-    public Student saveStudent(Student newStudent, Integer courseId, Integer sectionId, String registrationToken, String role) {
-        // Validate user invitation
-        this.userInvitationService.validateUserInvitation(newStudent.getEmail(), registrationToken, courseId, sectionId, role);
+    public Student saveStudent(Student newStudent,
+                               Integer courseId,
+                               Integer sectionId,
+                               String registrationToken,
+                               String role) {
 
-        // Password rule: At least 6 characters, contains at least one letter and one number.
+        this.userInvitationService.validateUserInvitation(
+                newStudent.getEmail(),
+                registrationToken,
+                courseId,
+                sectionId,
+                role
+        );
+
+        // Password must contain at least one letter and one number,
+        // and must be at least 6 characters long.
         if (!newStudent.getPassword().matches("^(?=.*[A-Za-z])(?=.*\\d)[A-Za-z\\d]{6,}$")) {
-            throw new IllegalArgumentException("Password must contain at least one letter and one number, and at least 6 characters.");
+            throw new IllegalArgumentException(
+                    "Password must contain at least one letter and one number, and at least 6 characters."
+            );
         }
 
-        // Add the student to the section
         Section section = this.sectionRepository.findById(sectionId)
                 .orElseThrow(() -> new ObjectNotFoundException("section", sectionId));
+
         section.addStudent(newStudent);
 
         newStudent.setEnabled(true);
@@ -99,8 +116,9 @@ public class StudentService {
         newStudent.setPassword(this.passwordEncoder.encode(newStudent.getPassword()));
 
         Student savedStudent = this.studentRepository.save(newStudent);
-        // Delete the user invitation after the student is saved.
+
         this.userInvitationService.deleteUserInvitation(newStudent.getEmail());
+
         return savedStudent;
     }
 
@@ -108,7 +126,6 @@ public class StudentService {
         Student oldStudent = this.studentRepository.findById(studentId)
                 .orElseThrow(() -> new ObjectNotFoundException("student", studentId));
 
-        // If the user is not an admin, then the user can only update her username, first rubricName, last rubricName, and email
         oldStudent.setUsername(update.getUsername());
         oldStudent.setFirstName(update.getFirstName());
         oldStudent.setLastName(update.getLastName());
@@ -116,19 +133,38 @@ public class StudentService {
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-        // If the user is an admin, then the user can update all the fields
-        if (authentication.getAuthorities().stream().anyMatch(grantedAuthority -> grantedAuthority.getAuthority().equals("ROLE_instructor"))) {
+        if (authentication.getAuthorities().stream()
+                .anyMatch(grantedAuthority ->
+                        grantedAuthority.getAuthority().equals("ROLE_instructor"))) {
             oldStudent.setEnabled(update.isEnabled());
-//            oldStudent.setRoles(update.getRoles());
         }
 
         return this.studentRepository.save(oldStudent);
     }
 
+    /**
+     * Deactivates a student without deleting the account or historical records.
+     *
+     * Team membership, section assignment, weekly activity reports,
+     * and peer evaluations remain unchanged.
+     */
+    public Student deactivateStudent(Integer studentId) {
+        Student student = this.studentRepository.findById(studentId)
+                .orElseThrow(() -> new ObjectNotFoundException("student", studentId));
+
+        if (!student.isEnabled()) {
+            throw new IllegalStateException("Student is already inactive.");
+        }
+
+        student.setEnabled(false);
+
+        return this.studentRepository.save(student);
+    }
+
     public void deleteStudent(Integer studentId) {
         this.studentRepository.findById(studentId)
                 .orElseThrow(() -> new ObjectNotFoundException("student", studentId));
+
         this.studentRepository.deleteById(studentId);
     }
-
 }
