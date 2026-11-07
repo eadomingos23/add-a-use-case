@@ -1473,6 +1473,19 @@ Details:
 7. Use case ends.
 
 **Extensions:**
+- **4a. The course admin or instructor cancels the deactivation:**
+  - 4a1. The system leaves the student's account active and makes no changes.
+  - 4a2. The use case ends.
+- **3a. The student is already deactivated:**
+  - 3a1. The system informs the course admin or instructor that the student's account is already inactive.
+  - 3a2. The system makes no changes and the use case ends.
+- **3b. The course admin or instructor is not authorized to deactivate this student:**
+  - 3b1. The system denies the operation without revealing student information outside the actor's authorized course sections.
+  - 3b2. The student's account remains unchanged and the use case ends.
+- **6a. The deactivation cannot be saved:**
+  - 6a1. The system reports that the deactivation failed.
+  - 6a2. The system rolls back the attempted change so the student's account remains in its previous state.
+  - 6a3. The use case ends.
 **Priority:** Low
 **Frequency of Use:** Rare. Occurs occasionally when a student withdraws from a course section.
 **Business Rules:** BR-student-lifecycle
